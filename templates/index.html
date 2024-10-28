@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Video Detector</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Styling for upload area and results */
+        .drop-zone {
+            border: 2px dashed #cbd5e0;
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover {
+            border-color: #4a5568;
+        }
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .result-card {
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.5s ease;
+        }
+        .result-card.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">Deepfake Video Detector</h1>
+            <p class="text-gray-600">Upload a video to check if it's real or fake</p>
+        </header>
+
+        <div class="max-w-3xl mx-auto">
+            <!-- Upload Zone -->
+            <div class="drop-zone bg-white rounded-lg p-8 shadow-md mb-8 text-center">
+                <form id="upload-form" class="text-center">
+                    <i class="fas fa-cloud-upload-alt text-5xl text-blue-500 mb-4"></i>
+                    <p class="text-gray-600 mb-4">Drag and drop your video here or</p>
+                    <label class="text-blue-500 hover:text-blue-600 cursor-pointer inline-block font-semibold">
+                        Browse
+                        <input type="file" id="video-input" class="hidden" accept=".mp4,.avi,.mov,.webm">
+                    </label>
+                    <p class="text-sm text-gray-500 mt-2">Supported formats: MP4, AVI, MOV, WEBM</p>
+                </form>
+            </div>
+
+            <!-- Video Player -->
+            <div id="video-preview" class="hidden mb-8">
+                <video controls id="uploaded-video" class="w-full rounded-lg shadow-md mb-8"></video>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="hidden text-center mb-8">
+                <div class="loading-spinner text-blue-500 text-4xl mb-4">
+                    <i class="fas fa-circle-notch"></i>
+                </div>
+                <p class="text-gray-600">Analyzing video...</p>
+            </div>
+
+            <!-- Results Card -->
+            <div id="result" class="result-card bg-white rounded-lg p-8 shadow-md hidden">
+                <div class="text-center">
+                    <div id="result-icon" class="text-6xl mb-4"></div>
+                    <h2 id="result-title" class="text-3xl font-bold mb-4"></h2>
+                    <div class="mb-6">
+                        <div class="w-full bg-gray-200 rounded-full h-4">
+                            <div id="confidence-bar" class="progress-bar h-4 rounded-full"></div>
+                        </div>
+                        <p id="confidence-text" class="text-gray-600 mt-2"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('video-input');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const videoPreview = document.getElementById('video-preview');
+            const uploadedVideo = document.getElementById('uploaded-video');
+            const resultIcon = document.getElementById('result-icon');
+            const resultTitle = document.getElementById('result-title');
+            const confidenceText = document.getElementById('confidence-text');
+            const confidenceBar = document.getElementById('confidence-bar');
+
+            fileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('video', file);
+
+                loading.classList.remove('hidden');
+                result.classList.add('hidden');
+                videoPreview.classList.add('hidden');
+
+                try {
+                    const response = await fetch('/analyze', { method: 'POST', body: formData });
+                    const data = await response.json();
+
+                    if (data.error) throw new Error(data.error);
+
+                    uploadedVideo.src = data.video_url;
+                    videoPreview.classList.remove('hidden');
+
+                    if (data.is_fake) {
+                        resultIcon.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500"></i>';
+                        resultTitle.textContent = 'FAKE';
+                        resultTitle.className = 'text-3xl font-bold mb-4 text-red-500';
+                        confidenceBar.className = 'progress-bar h-4 rounded-full bg-red-500';
+                    } else {
+                        resultIcon.innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
+                        resultTitle.textContent = 'REAL';
+                        resultTitle.className = 'text-3xl font-bold mb-4 text-green-500';
+                        confidenceBar.className = 'progress-bar h-4 rounded-full bg-green-500';
+                    }
+
+                    confidenceBar.style.width = `${data.confidence}%`;
+                    confidenceText.textContent = `Confidence: ${data.confidence.toFixed(1)}%`;
+
+                    result.classList.remove('hidden');
+                    setTimeout(() => result.classList.add('show'), 100);
+                } catch (error) {
+                    alert(error.message);
+                } finally {
+                    loading.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Detector</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(45deg, #0d0d0d, #282828);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .header h1 {
+            font-size: 36px;
+            margin: 0;
+            animation: fadeIn 2s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .upload-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .file-input-wrapper {
+            position: relative;
+            width: 300px;
+            height: 100px;
+            border: 2px dashed #007bff;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .file-input-wrapper:hover {
+            border-color: #0056b3;
+            background-color: rgba(0, 123, 255, 0.1);
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .file-input-label {
+            color: #007bff;
+            text-align: center;
+        }
+        .upload-container button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 16px;
+        }
+        .upload-container button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .upload-container button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result-container {
+            display: none;
+            margin: 30px auto;
+            max-width: 1200px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.5s;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .video-preview {
+            margin: 20px auto;
+            text-align: center;
+        }
+        .video-preview video {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .frames-section {
+            margin-top: 30px;
+        }
+        .frames-section h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #007bff;
+        }
+        .frame-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            overflow-x: auto;
+            padding: 20px;
+            scrollbar-width: thin;
+            scrollbar-color: #007bff #1c1c1c;
+        }
+        .frame-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        .frame-container::-webkit-scrollbar-track {
+            background: #1c1c1c;
+            border-radius: 4px;
+        }
+        .frame-container::-webkit-scrollbar-thumb {
+            background: #007bff;
+            border-radius: 4px;
+        }
+        .frame {
+            flex: 0 0 auto;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.3s;
+            position: relative;
+        }
+        .frame:hover {
+            transform: scale(1.05);
+        }
+        .frame img {
+            width: 200px;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+        .frame-number {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .prediction {
+            margin-top: 30px;
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .prediction.real {
+            background: rgba(40, 167, 69, 0.2);
+            border: 2px solid #28a745;
+        }
+        .prediction.fake {
+            background: rgba(220, 53, 69, 0.2);
+            border: 2px solid #dc3545;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Deepfake Video Detector</h1>
+    </div>
+
+    <div class="upload-container">
+        <div class="file-input-wrapper">
+            <input type="file" id="video" accept="video/*" onchange="handleFileSelect()">
+            <div class="file-input-label">
+                <i class="fas fa-cloud-upload-alt" style="font-size: 24px; margin-bottom: 10px;"></i>
+                <div>Drop your video here or click to browse</div>
+            </div>
+        </div>
+        <button onclick="uploadVideo()" id="analyze-btn" disabled>Analyze Video</button>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        <div style="margin-top: 10px;">Analyzing video...</div>
+    </div>
+
+    <div class="result-container" id="result-container">
+        <div class="video-preview">
+            <h2>Uploaded Video</h2>
+            <video id="video-player" width="600" controls>
+                <source id="video-source" src="" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        
+        <div class="frames-section">
+            <h2>Analyzed Frames</h2>
+            <div class="frame-container" id="frame-container">
+                <!-- Frames will be inserted here -->
+            </div>
+        </div>
+        
+        <div class="prediction" id="prediction"></div>
+    </div>
+
+    <script>
+        function handleFileSelect() {
+            const fileInput = document.getElementById('video');
+            const analyzeBtn = document.getElementById('analyze-btn');
+            analyzeBtn.disabled = !fileInput.files.length;
+        }
+
+        function uploadVideo() {
+            const videoFile = document.getElementById('video').files[0];
+            const formData = new FormData();
+            formData.append('video', videoFile);
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('analyze-btn').disabled = true;
+
+            fetch('/analyze', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    // Update video player
+                    const videoSource = document.getElementById('video-source');
+                    videoSource.src = data.video_url + '?t=' + new Date().getTime();
+                    document.getElementById('video-player').load();
+
+                    // Update frames
+                    const frameContainer = document.getElementById('frame-container');
+                    frameContainer.innerHTML = '';
+                    
+                    data.frame_urls.forEach((url, index) => {
+                        const frameDiv = document.createElement('div');
+                        frameDiv.className = 'frame';
+                        
+                        const frameNumber = document.createElement('div');
+                        frameNumber.className = 'frame-number';
+                        frameNumber.textContent = `Frame ${index + 1}`;
+                        
+                        const img = document.createElement('img');
+                        img.src = url + '?t=' + new Date().getTime();
+                        img.alt = `Frame ${index + 1}`;
+                        
+                        frameDiv.appendChild(frameNumber);
+                        frameDiv.appendChild(img);
+                        frameContainer.appendChild(frameDiv);
+                    });
+
+                    // Update prediction with only relevant confidence
+                    const predictionDiv = document.getElementById('prediction');
+                    const confidence = data.is_fake ? data.fake_confidence : data.real_confidence;
+                    predictionDiv.className = `prediction ${data.is_fake ? 'fake' : 'real'}`;
+                    predictionDiv.innerHTML = `
+                        <div>
+                            <i class="fas fa-${data.is_fake ? 'exclamation-triangle' : 'check-circle'}"></i>
+                            This video is likely ${data.is_fake ? 'FAKE' : 'REAL'}
+                        </div>
+                        <div style="font-size: 18px; margin-top: 10px;">
+                            Confidence: ${confidence.toFixed(2)}%
+                        </div>
+                    `;
+
+                    document.getElementById('result-container').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while uploading the video.');
+            })
+            .finally(() => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('analyze-btn').disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>
